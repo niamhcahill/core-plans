@@ -11,12 +11,14 @@ pkg_shasum="90815e812874831e9a4bf6e1136bf73bc2c5a0464ef142e2dfea40cda206db08"
 
 pkg_deps=(
   core/bash
+  core/gawk
   core/glibc
+  core/grep
+  core/libossp-uuid
   core/openssl
   core/perl
   core/readline
   core/zlib
-  core/libossp-uuid
 
   # for postgis
   core/libxml2
@@ -31,7 +33,6 @@ pkg_build_deps=(
   core/make
 
   # for postgis
-  core/perl
   core/diffutils
 )
 

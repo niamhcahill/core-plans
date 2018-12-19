@@ -40,30 +40,21 @@ END;
 EOF
 }
 
-# TODO: change this to use pg_controldata
-#      then, write a function to extract the be latest checkpoint location using pg_controldata,
-#      this allows us to grab the location even when pgsql is down
-#      then, turn that into an integer ( equivalent of SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0')::bigint; )
-# like /hab/pkgs/jeremymv2/postgresql/11.1/20181205163000/bin/pg_controldata --pgdata /hab/svc/postgresql/data/pgdata
-#
-# [root@ip-10-1-1-61 config]# /hab/pkgs/jeremymv2/postgresql/11.1/20181205163000/bin/pg_controldata --pgdata /hab/svc/postgresql/data/pgdata
-# pg_control version number:            1100
-# Catalog version number:               201809051
-# Database system identifier:           6636384425033457352
-# Database cluster state:               in archive recovery
-# pg_control last modified:             Tue 18 Dec 2018 09:59:13 PM UTC
+# Use pg_controldata to putput our current xlog position, because
+# we cannot depend on a SQL query for local_xlog_position
+# This function must return an integer, for the suitability hook to work correctly
+# For reference, the line from pg_controldata we care about looks like:
 # Latest checkpoint location:           0/3000098
-# Latest checkpoint's REDO location:    0/3000060
-# Latest checkpoint's REDO WAL file:    000000010000000000000003
-
 local_xlog_position() {
-  psql -U {{cfg.superuser.name}} -h localhost -p {{cfg.port}} postgres -t <<EOF | tr -d '[:space:]'
-SELECT CASE WHEN pg_is_in_recovery()
-  THEN GREATEST(pg_wal_lsn_diff(COALESCE(pg_last_wal_receive_lsn(), '0/0'), '0/0')::bigint,
-                pg_wal_lsn_diff(pg_last_wal_replay_lsn(), '0/0')::bigint)
-  ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0')::bigint
-END;
-EOF
+  lsn_hex=$(pg_controldata --pgdata /hab/svc/postgresql/data/pgdata | \
+              grep 'Latest checkpoint location:' | \
+              awk '{print $4}')
+
+  # This perl one-liner returns 0 if lsn_hex is empty, in case either pg_controldata or grep failed
+  # otherwise it converts the hex log position to a decimal
+  # Borrowed from patroni and converted to Perl, since we already dep on a Perl interpeter
+  #   https://github.com/zalando/patroni/blob/master/patroni/postgresql.py
+  perl -le 'my $lsn = $ARGV[0]; my @t = split /\//, $lsn; my $lsn_dec = hex(@t[0]) * hex(0x100000000) + hex(@t[1]); print $lsn_dec' -- "${lsn_hex}"
 }
 
 master_xlog_position() {
