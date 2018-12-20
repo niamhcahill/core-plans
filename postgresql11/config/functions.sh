@@ -1,3 +1,6 @@
+local_connect_string="-U {{cfg.superuser.name}}  -h {{sys.ip}} -p {{cfg.port}}"
+primary_connect_string="-U {{cfg.superuser.name}}  -h {{svc.leader.sys.ip}} -p {{svc.leader.cfg.port}}"
+
 init_pgpass() {
   cat > {{pkg.svc_var_path}}/.pgpass<<EOF
 *:*:*:{{cfg.superuser.name}}:{{cfg.superuser.password}}
@@ -25,7 +28,7 @@ write_env_var() {
 
 setup_replication_user_in_primary() {
   echo 'Making sure replication role exists on Primary'
-  psql -U {{cfg.superuser.name}}  -h {{svc.leader.sys.ip}} -p {{svc.leader.cfg.port}} postgres >/dev/null 2>&1 << EOF
+  psql ${primary_connect_string} postgres >/dev/null 2>&1 << EOF
 DO \$$
   BEGIN
   SET synchronous_commit = off;
@@ -41,7 +44,7 @@ EOF
 }
 
 local_xlog_position_online() {
-  psql -U {{cfg.superuser.name}} -h localhost -p {{cfg.port}} postgres -t <<EOF | tr -d '[:space:]'
+  psql ${local_connect_string} postgres -t <<EOF | tr -d '[:space:]'
 SELECT CASE WHEN pg_is_in_recovery()
   THEN GREATEST(pg_wal_lsn_diff(COALESCE(pg_last_wal_receive_lsn(), '0/0'), '0/0')::bigint,
                 pg_wal_lsn_diff(pg_last_wal_replay_lsn(), '0/0')::bigint)
@@ -78,7 +81,7 @@ local_xlog_position_offline() {
 }
 
 local_xlog_position() {
-  if pg_isready -U {{cfg.superuser.name}} -h {{sys.ip}} -p {{cfg.port}} >/dev/null 2>&1
+  if pg_isready ${local_connect_string} >/dev/null 2>&1
   then
     local_xlog_position_online
   else
@@ -87,13 +90,13 @@ local_xlog_position() {
 }
 
 primary_xlog_position() {
-  psql -U {{cfg.superuser.name}} -h {{svc.leader.sys.ip}} -p {{svc.leader.cfg.port}} postgres -t <<EOF | tr -d '[:space:]'
+  psql ${primary_connect_string} postgres -t <<EOF | tr -d '[:space:]'
 SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0')::bigint;
 EOF
 }
 
 primary_ready() {
-  pg_isready -U {{cfg.superuser.name}} -h {{svc.leader.sys.ip}} -p {{svc.leader.cfg.port}}
+  pg_isready ${primary_connect_string}
 }
 
 bootstrap_replica_via_pg_basebackup() {
@@ -119,11 +122,24 @@ ensure_dir_ownership() {
 promote_to_leader() {
   if [ -f {{pkg.svc_data_path}}/pgdata/recovery.conf ]; then
     echo "Promoting database"
-    until pg_isready -U {{cfg.superuser.name}} -h localhost -p {{cfg.port}}; do
+    until pg_isready ${local_connect_string}; do
       echo "Waiting for database to start"
       sleep 1
     done
 
     pg_ctl promote -D {{pkg.svc_data_path}}/pgdata
   fi
+}
+
+print_statistics() {
+  echo -n "Databases and sizes:"
+  psql ${local_connect_string} postgres -t -c "SELECT json_agg(t) FROM (SELECT * FROM pg_database WHERE datname NOT ILIKE 'template%') t"
+  echo -n "Database statistics:"
+  psql ${local_connect_string} postgres -t -c "SELECT json_agg(t) FROM (SELECT * FROM pg_stat_database WHERE datname NOT ILIKE 'template%') t"
+  echo -n "Replication statistics:"
+  psql ${local_connect_string} postgres -t -c "SELECT json_agg(t) FROM (SELECT * FROM pg_stat_replication) t"
+  echo -n "Table statistics:"
+  psql ${local_connect_string} postgres -t -c "SELECT json_agg(t) FROM (SELECT * FROM pg_stat_user_tables) t"
+  echo -n "Index statistics:"
+  psql ${local_connect_string} postgres -t -c "SELECT json_agg(t) FROM (SELECT * FROM pg_stat_user_indexes) t"
 }
