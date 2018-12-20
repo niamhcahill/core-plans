@@ -40,21 +40,50 @@ END;
 EOF
 }
 
-# Use pg_controldata to putput our current xlog position, because
-# we cannot depend on a SQL query for local_xlog_position
-# This function must return an integer, for the suitability hook to work correctly
-# For reference, the line from pg_controldata we care about looks like:
-# Latest checkpoint location:           0/3000098
-local_xlog_position() {
-  lsn_hex=$(pg_controldata --pgdata /hab/svc/postgresql/data/pgdata | \
-              grep 'Latest checkpoint location:' | \
-              awk '{print $4}')
+local_xlog_position_online() {
+  psql -U {{cfg.superuser.name}} -h localhost -p {{cfg.port}} postgres -t <<EOF | tr -d '[:space:]'
+SELECT CASE WHEN pg_is_in_recovery()
+  THEN GREATEST(pg_wal_lsn_diff(COALESCE(pg_last_wal_receive_lsn(), '0/0'), '0/0')::bigint,
+                pg_wal_lsn_diff(pg_last_wal_replay_lsn(), '0/0')::bigint)
+  ELSE pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0')::bigint
+END;
+EOF
+}
+
+get_pgcontroldata_value() {
+  pg_controldata --pgdata /hab/svc/postgresql/data/pgdata | \
+    grep "${1}" | \
+    awk -F: '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}'
+}
+
+# Use pg_controldata to putput our current xlog position, in the case that
+# PG is offline - for example if starting up after a full cluster shutdown
+# and needing to elect a leader
+# Special thanks to Patroni for figuring this out: https://github.com/zalando/patroni/blob/master/patroni/postgresql.py#L1272-L1286
+local_xlog_position_offline() {
+  lsn_hex=$(get_pgcontroldata_value 'Minimum recovery ending location')
+  timeline=$(get_pgcontroldata_value "Min recovery ending loc's timeline")
+
+  if [[ $lsn_hex == '0/0' || $timeline == '0' ]]
+  then
+    # it was a leader when it crashed, use a different attribute
+    lsn_hex=$(get_pgcontroldata_value 'Latest checkpoint location')
+    timeline=$(get_pgcontroldata_value "Latest checkpoint's TimeLineID")
+  fi
 
   # This perl one-liner returns 0 if lsn_hex is empty, in case either pg_controldata or grep failed
   # otherwise it converts the hex log position to a decimal
   # Borrowed from patroni and converted to Perl, since we already dep on a Perl interpeter
-  #   https://github.com/zalando/patroni/blob/master/patroni/postgresql.py
   perl -le 'my $lsn = $ARGV[0]; my @t = split /\//, $lsn; my $lsn_dec = hex(@t[0]) * hex(0x100000000) + hex(@t[1]); print $lsn_dec' -- "${lsn_hex}"
+}
+
+local_xlog_position() {
+  if pg_isready -U {{cfg.superuser.name}} -h {{sys.ip}} -p {{cfg.port}} >/dev/null 2>&1
+  then
+    local_xlog_position_online
+  else
+    local_xlog_position_offline
+  fi
 }
 
 master_xlog_position() {

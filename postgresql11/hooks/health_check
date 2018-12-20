@@ -4,7 +4,7 @@
 source {{pkg.svc_config_path}}/functions.sh
 
 init_pgpass
-if master_ready 2>&1 >/dev/null; then
+if master_ready >/dev/null 2>&1; then
   echo "Master pg is available at {{svc.leader.sys.ip}}"
   local_xlog=$(local_xlog_position)
   master_xlog=$(master_xlog_position)
