@@ -23,9 +23,9 @@ write_env_var() {
   echo "$1" > "{{pkg.svc_config_path}}/env/$2"
 }
 
-setup_replication_user_in_master() {
-  echo 'Making sure replication role exists on Master'
-  psql -U {{cfg.superuser.name}}  -h {{svc.leader.sys.ip}} -p {{cfg.port}} postgres >/dev/null 2>&1 << EOF
+setup_replication_user_in_primary() {
+  echo 'Making sure replication role exists on Primary'
+  psql -U {{cfg.superuser.name}}  -h {{svc.leader.sys.ip}} -p {{svc.leader.cfg.port}} postgres >/dev/null 2>&1 << EOF
 DO \$$
   BEGIN
   SET synchronous_commit = off;
@@ -86,20 +86,20 @@ local_xlog_position() {
   fi
 }
 
-master_xlog_position() {
-  psql -U {{cfg.superuser.name}} -h {{svc.leader.sys.ip}} -p {{cfg.port}} postgres -t <<EOF | tr -d '[:space:]'
+primary_xlog_position() {
+  psql -U {{cfg.superuser.name}} -h {{svc.leader.sys.ip}} -p {{svc.leader.cfg.port}} postgres -t <<EOF | tr -d '[:space:]'
 SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), '0/0')::bigint;
 EOF
 }
 
-master_ready() {
-  pg_isready -U {{cfg.superuser.name}} -h {{svc.leader.sys.ip}} -p {{cfg.port}}
+primary_ready() {
+  pg_isready -U {{cfg.superuser.name}} -h {{svc.leader.sys.ip}} -p {{svc.leader.cfg.port}}
 }
 
 bootstrap_replica_via_pg_basebackup() {
   echo 'Bootstrapping replica via pg_basebackup from leader '
   rm -rf {{pkg.svc_data_path}}/pgdata/*
-  pg_basebackup --verbose --progress --pgdata={{pkg.svc_data_path}}/pgdata --dbname='postgres://{{cfg.replication.name}}@{{svc.leader.sys.ip}}:{{cfg.port}}/postgres'
+  pg_basebackup --verbose --progress --pgdata={{pkg.svc_data_path}}/pgdata --dbname='postgres://{{cfg.replication.name}}@{{svc.leader.sys.ip}}:{{svc.leader.cfg.port}}/postgres'
 }
 
 ensure_dir_ownership() {

@@ -36,7 +36,7 @@ if [[ ! -f "{{pkg.svc_data_path}}/pgdata/PG_VERSION" ]]; then
 fi
 {{~/unless}}
 {{#if svc.me.follower ~}}
-setup_replication_user_in_master
+setup_replication_user_in_primary
 if [ $? != 0 ]; then
   echo 'Waiting for leader to become available before initializing'
   exit 1
