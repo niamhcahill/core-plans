@@ -1,4 +1,4 @@
-$pkg_name="postgresql-client"
+$pkg_name="postgresql11-client"
 $pkg_origin="core"
 $pkg_version="11.1"
 $pkg_license=('PostgreSQL')

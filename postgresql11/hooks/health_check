@@ -4,14 +4,16 @@ source {{pkg.svc_config_path}}/functions.sh
 init_pgpass
 
 {{#if svc.me.follower}}
+# Calculate replica lag in bytes
+# TODO: Perhaps in the future we should instead calculate in seconds
 if primary_ready >/dev/null 2>&1; then
   echo "Primary server is available at {{svc.leader.sys.ip}}"
   local_xlog=$(local_xlog_position)
   primary_xlog=$(primary_xlog_position)
   xlog_diff=$((primary_xlog-local_xlog))
-  echo "Diff between primary and local replica {{svc.me.sys.ip}} is ${xlog_diff}"
+  echo "Local replica {{svc.me.sys.ip}} is ${xlog_diff} bytes behind the primary"
   if [ "$xlog_diff" -gt "{{cfg.replication.lag_health_threshold}}" ];then
-    echo "Replica is lagging: ${xlog_diff} is greater than threshold {{cfg.replication.lag_health_threshold}}"
+    echo "Replica is lagging: ${xlog_diff} bytes is greater than threshold {{cfg.replication.lag_health_threshold}}"
     exit 2
   fi
 else

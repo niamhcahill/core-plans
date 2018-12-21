@@ -54,7 +54,7 @@ EOF
 }
 
 get_pgcontroldata_value() {
-  pg_controldata --pgdata /hab/svc/postgresql/data/pgdata | \
+  pg_controldata --pgdata {{pkg.svc_data_path}}/pgdata | \
     grep "${1}" | \
     awk -F: '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}'
 }
@@ -142,4 +142,23 @@ print_statistics() {
   psql ${local_connect_string} postgres -t -c "SELECT json_agg(t) FROM (SELECT * FROM pg_stat_user_tables) t"
   echo -n "Index statistics:"
   psql ${local_connect_string} postgres -t -c "SELECT json_agg(t) FROM (SELECT * FROM pg_stat_user_indexes) t"
+}
+
+check_pgdata_upgrade_needed() {
+  if [[ -f "{{pkg.svc_data_path}}/PG_VERSION" ]]; then
+    runtime_version=$(postgres --version | cut -d' ' -f 3)
+    # Trim the micro-version for understanding upgrade boundaries
+    #  (ex: 11.1 -> 11,  9.6.8 -> 9.6)
+    runtime_version_nomicro="${runtime_version%.*}"
+    pgdata_version="$(cat {{pkg.svc_data_path}}/pgdata/PG_VERSION)"
+
+    if [[ "${runtime_version_nomicro}" != "${pgdata_version}" ]]
+    then
+      echo "ERROR: the database version on disk (${pgdata_version}) needs to be upgraded"
+      echo "before it can be used with this version of PostgreSQL (${runtime_version})."
+      echo "this package doesn't yet know how to do that, so pg_upgrade must be run"
+      echo "manually before continuing"
+      exit 1
+    fi
+  fi
 }

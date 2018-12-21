@@ -15,5 +15,7 @@ password = 'admin'
 [replication]
 name = 'replication'
 password = 'replication'
-lag_health_threshold = 1048576
+# note: lag_health_threshold is in bytes - default to 10MB
+# raise this on very high write rate installations
+lag_health_threshold = 10240
 enable = false

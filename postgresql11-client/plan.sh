@@ -1,6 +1,6 @@
 source ../postgresql11/plan.sh
 
-pkg_name=postgresql-client
+pkg_name=postgresql11-client
 # Default to version/shasum from sourced postgresql plan
 pkg_version=${pkg_version:-11.1}
 pkg_origin=core
