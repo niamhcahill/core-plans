@@ -1,5 +1,15 @@
-# Java JRE9
+# OpenJDK 11
 
-This plan has been deprecated as it has been marked EOL by upstream.
+OpenJDK is a free and open-source implementation of the Java Platform, Standard Edition. It is the result of an effort Sun Microsystems began in 2006. The implementation is licensed under the GNU General Public License version 2 with a linking exception.
 
-https://www.oracle.com/technetwork/java/javase/9-0-4-relnotes-4021191.html
+## Maintainers
+
+* The Habitat Maintainers: <humans@habitat.sh>
+
+## Type of Package
+
+Binary package
+
+## Usage
+
+*TODO: Add instructions for usage*
