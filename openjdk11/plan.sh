@@ -37,8 +37,8 @@ do_build() {
 }
 
 do_install() {
-  pushd ${pkg_prefix}
-  rsync -avz ${source_dir}/ .
+  pushd "${pkg_prefix}" || exit 1
+  rsync -avz "${source_dir}/" .
 
   export LD_RUN_PATH="${LD_RUN_PATH}:${pkg_prefix}/lib/jli:${pkg_prefix}/lib/server:${pkg_prefix}/lib"
 
@@ -52,7 +52,7 @@ do_install() {
   find "$pkg_prefix/lib" -type f -name "*.so" \
     -exec patchelf --set-rpath "${LD_RUN_PATH}" {} \;
 
-  popd
+  popd || exit 1
 }
 
 do_strip() {
