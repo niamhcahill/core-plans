@@ -7,10 +7,20 @@ pkg_source=https://download.java.net/java/GA/jdk11/9/GPL/openjdk-${pkg_version}_
 pkg_shasum=99be79935354f5c0df1ad293620ea36d13f48ec3ea870c838f20c504c9668b57
 pkg_filename=openjdk-${pkg_version}_linux-x64_bin.tar.gz
 pkg_dirname="jdk-${pkg_version}"
-pkg_license=("GPL-2.0")
+pkg_license=("GPL-2.0-only")
 pkg_description=('Oracle Java Runtime Environment. This package is made available to you to allow you to run your applications as provided in and subject to the terms of the Oracle Binary Code License Agreement for the Java SE Platform Products and JavaFX, found at http://www.oracle.com/technetwork/java/javase/terms/license/index.html')
 pkg_upstream_url=https://openjdk.java.net/
-pkg_deps=(core/glibc core/gcc-libs core/xlib core/libxi core/libxext core/libxrender core/libxtst core/zlib)
+pkg_deps=(
+  core/freetype
+  core/gcc-libs
+  core/glibc
+  core/libxext
+  core/libxi
+  core/libxrender
+  core/libxtst
+  core/xlib
+  core/zlib
+)
 pkg_build_deps=(core/patchelf core/rsync)
 pkg_bin_dirs=(bin)
 pkg_lib_dirs=(lib)
